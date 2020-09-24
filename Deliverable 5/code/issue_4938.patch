@@ -1,0 +1,123 @@
+diff --git a/lib/matplotlib/mathtext.py b/lib/matplotlib/mathtext.py
+index 8b4aa04f5..3c2ca62bb 100644
+--- a/lib/matplotlib/mathtext.py
++++ b/lib/matplotlib/mathtext.py
+@@ -3269,6 +3269,9 @@ class MathTextParser(object):
+         if self._parser is None:
+             self.__class__._parser = Parser()
+ 
++        if (not rcParams['mathtext.enabled']):
++            s = s.replace(r'$', r'\$')
++
+         box = self._parser.parse(s, font_output, fontsize, dpi)
+         font_output.set_canvas_size(box.width, box.height, box.depth)
+         return font_output.get_results(box)
+diff --git a/lib/matplotlib/mpl-data/stylelib/_classic_test.mplstyle b/lib/matplotlib/mpl-data/stylelib/_classic_test.mplstyle
+index c42222ad8..ae96dbb64 100644
+--- a/lib/matplotlib/mpl-data/stylelib/_classic_test.mplstyle
++++ b/lib/matplotlib/mpl-data/stylelib/_classic_test.mplstyle
+@@ -146,6 +146,7 @@ text.antialiased : True # If True (default), the text will be antialiased.
+ # These settings are only used if mathtext.fontset is 'custom'.
+ # Note that this "custom" mode is unsupported and may go away in the
+ # future.
++mathtext.enabled : True
+ mathtext.cal : cursive
+ mathtext.rm  : serif
+ mathtext.tt  : monospace
+diff --git a/lib/matplotlib/mpl-data/stylelib/classic.mplstyle b/lib/matplotlib/mpl-data/stylelib/classic.mplstyle
+index 94ae5bf7a..c19f7beb9 100644
+--- a/lib/matplotlib/mpl-data/stylelib/classic.mplstyle
++++ b/lib/matplotlib/mpl-data/stylelib/classic.mplstyle
+@@ -148,6 +148,7 @@ text.antialiased : True # If True (default), the text will be antialiased.
+ # These settings are only used if mathtext.fontset is 'custom'.
+ # Note that this "custom" mode is unsupported and may go away in the
+ # future.
++mathtext.enabled : True
+ mathtext.cal : cursive
+ mathtext.rm  : serif
+ mathtext.tt  : monospace
+diff --git a/lib/matplotlib/rcsetup.py b/lib/matplotlib/rcsetup.py
+index 838af4d97..b0e22e933 100644
+--- a/lib/matplotlib/rcsetup.py
++++ b/lib/matplotlib/rcsetup.py
+@@ -450,7 +450,7 @@ validate_fontset = ValidateInStrings(
+ 
+ validate_mathtext_default = ValidateInStrings(
+     'default',
+-    "rm cal it tt sf bf default bb frak circled scr regular".split())
++    "enabled rm cal it tt sf bf default bb frak circled scr regular".split())
+ 
+ validate_verbose = ValidateInStrings(
+     'verbose',
+@@ -1116,7 +1116,8 @@ defaultParams = {
+     'text.hinting':        ['auto', validate_hinting],
+     'text.hinting_factor': [8, validate_int],
+     'text.antialiased':    [True, validate_bool],
+-
++    
++    'mathtext.enabled':        [True, validate_bool],
+     'mathtext.cal':            ['cursive', validate_font_properties],
+     'mathtext.rm':             ['sans', validate_font_properties],
+     'mathtext.tt':             ['monospace', validate_font_properties],
+diff --git a/lib/matplotlib/tests/test_usemathtext.py b/lib/matplotlib/tests/test_usemathtext.py
+new file mode 100644
+index 000000000..edebb76b0
+--- /dev/null
++++ b/lib/matplotlib/tests/test_usemathtext.py
+@@ -0,0 +1,18 @@
++from __future__ import absolute_import, division, print_function
++
++import pytest
++
++import matplotlib
++from matplotlib.testing.decorators import image_comparison
++import matplotlib.pyplot as plt
++import matplotlib.mathtext as mathtext;
++
++def test_usemathtext():
++    matplotlib.rcParams['mathtext.enabled'] = False
++    fig = plt.figure()
++    ax = fig.add_subplot(111)
++    fig.set_xlabel(r"\sqrt\frac{\log^3 x}{x}")
++    assert ax.get_xlabel() == r"\sqrt\frac{\log^3 x}{x}"
++
++parser = mathtext.MathTextParser("Bitmap")
++parser.to_png('test.png', r'IQ: $\sigma_i=15$')
+\ No newline at end of file
+diff --git a/lib/matplotlib/text.py b/lib/matplotlib/text.py
+index d2df6c6e3..6199a8065 100644
+--- a/lib/matplotlib/text.py
++++ b/lib/matplotlib/text.py
+@@ -1100,7 +1100,7 @@ class Text(Artist):
+             self.stale = True
+ 
+     @staticmethod
+-    def is_math_text(s, usetex=None):
++    def is_math_text(s, usetex=None, usemathtext=None):
+         """
+         Returns a cleaned string and a boolean flag.
+         The flag indicates if the given string *s* contains any mathtext,
+@@ -1117,7 +1117,10 @@ class Text(Artist):
+                 s = r'\ '
+             return s, 'TeX'
+ 
+-        if cbook.is_math_text(s):
++        if usemathtext is None:
++            usemathtext = rcParams['mathtext.enabled']
++
++        if cbook.is_math_text(s) and usemathtext:
+             return s, True
+         else:
+             return s.replace(r'\$', '$'), False
+diff --git a/matplotlibrc.template b/matplotlibrc.template
+index cf4e08031..82a42be18 100644
+--- a/matplotlibrc.template
++++ b/matplotlibrc.template
+@@ -261,6 +261,7 @@ backend      : $TEMPLATE_BACKEND
+ ## These settings are only used if mathtext.fontset is 'custom'.
+ ## Note that this "custom" mode is unsupported and may go away in the
+ ## future.
++#mathtext.enabled : True
+ #mathtext.cal : cursive
+ #mathtext.rm  : sans
+ #mathtext.tt  : monospace
